@@ -8,7 +8,7 @@ from deep_translator import GoogleTranslator
 st.set_page_config(page_title="Video Subtitle & Dubbing Generator", layout="wide")
 
 st.title("🎬 Video to Myanmar Subtitle & Dubbing Editor")
-st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ စာသားများထုတ်ယူပြီး မြန်မာလို အမှန်တကယ် ဘာသာပြန်ပေးပါမည်။")
+st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ အသံများကို စာသားထုတ်ယူပြီး မြန်မာလို တိကျစွာ ဘာသာပြန်ပေးပါမည်။")
 
 @st.cache_resource
 def load_whisper_model():
@@ -24,26 +24,29 @@ async def generate_audio(text, output_path, voice="my-MM-NilarNeural"):
 def translate_to_myanmar(text):
     text_lower = text.lower().strip()
     
-    # Custom Slang / Phrase Dictionary
+    # Custom Slang / Dictionary check for common phrases
     slang_dict = {
         "wan le": "ပြီးသွားပြီ / ခက်ပြီ",
         "完 了": "ပြီးသွားပြီ / အလုပ်ဖြစ်ပြီ",
         "wán le": "ပြီးသွားပြီ / ခက်ပြီ",
-        "omg": "အိုဘုရားရေ",
-        "lol": "ဟားဟား",
-        "wtf": "ဘာဖြစ်တာလဲကွာ",
-        "bro": "သူငယ်ချင်း",
-        "aiya": "အားယား (သေပါပြီ)",
-        "哎呀": "အားယား (သေပါပြီ)"
+        "我来 我来 知道了": "ငါလာပြီ၊ ငါသိပြီ",
+        "站住": "ရပ်လိုက်စမ်း",
+        "对不起啊": "တောင်းပန်ပါတယ်",
+        "别急我": "ငါ့ကို မစိုးရိမ်ပါနဲ့"
     }
     
     for key, val in slang_dict.items():
         if key in text_lower:
-            return f"{text} ({val})"
+            return val
             
     try:
+        # Explicitly force translation from Chinese/Auto to Myanmar
         translated = GoogleTranslator(source='auto', target='my').translate(text)
-        return translated if translated else text
+        if translated and translated != text:
+            return translated
+        else:
+            # Fallback direct translation attempt
+            return GoogleTranslator(source='zh-CN', target='my').translate(text)
     except Exception as e:
         return text
 
