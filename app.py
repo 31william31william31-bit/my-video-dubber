@@ -3,29 +3,51 @@ import streamlit as st
 import pandas as pd
 import edge_tts
 import whisper
-import os
+from deep_translator import GoogleTranslator
 
-st.set_page_config(page_title="Real Video Subtitle & Dubbing Generator", layout="wide")
+st.set_page_config(page_title="Video Subtitle & Dubbing Generator", layout="wide")
 
-st.title("🎬 Real Video to Myanmar Subtitle & Dubbing Editor")
-st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ AI က အသံများကို တကယ် စာသားထုတ်ပေးပြီး မြန်မာလို ဘာသာပြန်ပေးပါမည်။")
+st.title("🎬 Video to Myanmar Subtitle & Dubbing Editor (Slang Supported)")
+st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ ဘန်းစကားများနှင့် အသုံးအနှုန်းများကို မြန်မာလို သဘာဝကျကျ ဘာသာပြန်ပေးပါမည်။")
 
-# Load Whisper model (cached for performance)
 @st.cache_resource
 def load_whisper_model():
     return whisper.load_model("base")
 
-with st.spinner("AI Whisper Model ကို ချိတ်ဆက်နေပါပြီ... ခေတ္တစောင့်ဆိုင်းပေးပါ။"):
+with st.spinner("AI Whisper Model ကို ချိတ်ဆက်နေပါပြီ..."):
     model = load_whisper_model()
 
 async def generate_audio(text, output_path, voice="my-MM-NilarNeural"):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
-# Simple translation helper (can be expanded with translation library if needed)
 def translate_to_myanmar(text):
-    # Real transcription text will be processed here
-    return f"[မြန်မာဘာသာပြန်] {text}"
+    text_lower = text.lower().strip()
+    
+    # Custom Slang / Phrase Dictionary (Chinese Pinyin or Common Slangs)
+    slang_dict = {
+        "wan le": "ပြီးသွားပြီ / ခက်ပြီ",
+        "完 了": "ပြီးသွားပြီ / အလုပ်ဖြစ်ပြီ",
+        "wán le": "ပြီးသွားပြီ / ခက်ပြီ",
+        "omg": "အိုဘုရားရေ",
+        "lol": "ဟားဟား",
+        "wtf": "ဘာဖြစ်တာလဲကွာ",
+        "bro": "သူငယ်ချင်း",
+        "aiya": "အားယား (သေပါပြီ)",
+        "哎呀": "အားယား (သေပါပြီ)"
+    }
+    
+    # Direct match check for slangs
+    for key, val in slang_dict.items():
+        if key in text_lower:
+            return text.replace(key, f"({val})")
+            
+    try:
+        # General Translation using Google Translator
+        translated = GoogleTranslator(source='auto', target='my').translate(text)
+        return translated if translated else text
+    except Exception as e:
+        return text
 
 uploaded_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ (MP4, MKV)", type=["mp4", "mkv"])
 
@@ -36,9 +58,8 @@ if uploaded_file is not None:
     
     st.video(input_video_path)
     
-    if st.button("🚀 ဗီဒီယိုမှ စာသား တကယ် စတင်ခွဲထုတ်မည်"):
-        with st.spinner("ဗီဒီယိုကို AI ဖြင့် စစ်ဆေးနေပါပြီ... ခေတ္တစောင့်ဆိုင်းပေးပါ။"):
-            # Transcribe real audio from video using Whisper
+    if st.button("🚀 ဗီဒီယိုမှ စာသားခွဲထုတ်ပြီး ဘန်းစကားများပါ ဘာသာပြန်မည်"):
+        with st.spinner("ဗီဒီယိုကို စစ်ဆေးနေပါပြီ... ခေတ္တစောင့်ဆိုင်းပေးပါ။"):
             result = model.transcribe(input_video_path)
             segments = result.get("segments", [])
             
@@ -47,7 +68,8 @@ if uploaded_file is not None:
                 start_time = str(int(seg['start']))
                 end_time = str(int(seg['end']))
                 orig_text = seg['text'].strip()
-                # Translate original text
+                
+                # Slang & Normal Translation
                 my_trans = translate_to_myanmar(orig_text)
                 
                 data.append({
@@ -58,22 +80,22 @@ if uploaded_file is not None:
                     "Myanmar Translation": my_trans
                 })
             
-            # Fallback if no segments found
             if not data:
+                text_content = result.get("text", "")
                 data = [{
                     "No.": 1,
                     "Start": "0",
                     "End": "5",
-                    "Original Text": result.get("text", "No speech detected"),
-                    "Myanmar Translation": translate_to_myanmar(result.get("text", ""))
+                    "Original Text": text_content,
+                    "Myanmar Translation": translate_to_myanmar(text_content)
                 }]
             
             df = pd.DataFrame(data)
             st.session_state["transcript_df"] = df
-            st.success("✅ ဗီဒီယိုမှ စာသားခွဲထုတ်ခြင်း ပြီးစီးပါပြီ!")
+            st.success("✅ စာသားခွဲထုတ်ခြင်းနှင့် ဘာသာပြန်ဆိုခြင်း ပြီးစီးပါပြီ!")
 
 if "transcript_df" in st.session_state:
-    st.subheader("📝 တကယ့် စာသားများနှင့် ဘာသာပြန်များ တည်းဖြတ်ရန်")
+    st.subheader("📝 မြန်မာဘာသာပြန် စာသားများ တည်းဖြတ်ရန်")
     
     edited_df = st.data_editor(
         st.session_state["transcript_df"], 
@@ -96,6 +118,6 @@ if "transcript_df" in st.session_state:
                 st.download_button(
                     label="📥 အသံဖိုင်ကို သိမ်းဆည်းရန် (Download)",
                     data=file,
-                    file_name="real_dubbed_audio.mp3",
+                    file_name="myanmar_dubbed_audio.mp3",
                     mime="audio/mp3"
                 )
