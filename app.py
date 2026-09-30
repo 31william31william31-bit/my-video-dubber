@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import edge_tts
 import whisper
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 st.set_page_config(page_title="Video Subtitle & Dubbing Generator", layout="wide")
 
@@ -17,8 +17,6 @@ def load_whisper_model():
 with st.spinner("AI Whisper Model ကို ချိတ်ဆက်နေပါပြီ..."):
     model = load_whisper_model()
 
-translator = Translator()
-
 async def generate_audio(text, output_path, voice="my-MM-NilarNeural"):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
@@ -26,7 +24,7 @@ async def generate_audio(text, output_path, voice="my-MM-NilarNeural"):
 def translate_to_myanmar(text):
     text_lower = text.lower().strip()
     
-    # Custom Slang / Phrase Dictionary (Chinese Pinyin or Slangs)
+    # Custom Slang / Phrase Dictionary
     slang_dict = {
         "wan le": "ပြီးသွားပြီ / ခက်ပြီ",
         "完 了": "ပြီးသွားပြီ / အလုပ်ဖြစ်ပြီ",
@@ -44,9 +42,8 @@ def translate_to_myanmar(text):
             return f"{text} ({val})"
             
     try:
-        # Translate from Chinese/Any language to Myanmar (my)
-        result = translator.translate(text, dest='my')
-        return result.text if result and result.text else text
+        translated = GoogleTranslator(source='auto', target='my').translate(text)
+        return translated if translated else text
     except Exception as e:
         return text
 
@@ -70,7 +67,6 @@ if uploaded_file is not None:
                 end_time = str(int(seg['end']))
                 orig_text = seg['text'].strip()
                 
-                # Real Translation
                 my_trans = translate_to_myanmar(orig_text)
                 
                 data.append({
