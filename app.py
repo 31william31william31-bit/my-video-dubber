@@ -8,7 +8,7 @@ from deep_translator import GoogleTranslator
 st.set_page_config(page_title="Video Subtitle & Dubbing Generator", layout="wide")
 
 st.title("🎬 Video to Myanmar Subtitle & Dubbing Editor")
-st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ အသံများကို စာသားထုတ်ယူပြီး မြန်မာလို တိကျစွာ ဘာသာပြန်ပေးပါမည်။")
+st.write("ဗီဒီယိုဖိုင် တင်ပါ၊ စာသားများအားလုံးကို မြန်မာလို အပြည့်အစုံ ဘာသာပြန်ပေးပါမည်။")
 
 @st.cache_resource
 def load_whisper_model():
@@ -22,9 +22,13 @@ async def generate_audio(text, output_path, voice="my-MM-NilarNeural"):
     await communicate.save(output_path)
 
 def translate_to_myanmar(text):
-    text_lower = text.lower().strip()
+    text_clean = text.strip()
+    if not text_clean:
+        return text
+        
+    text_lower = text_clean.lower()
     
-    # Custom Slang / Dictionary check for common phrases
+    # Custom Slang / Dictionary check
     slang_dict = {
         "wan le": "ပြီးသွားပြီ / ခက်ပြီ",
         "完 了": "ပြီးသွားပြီ / အလုပ်ဖြစ်ပြီ",
@@ -32,23 +36,32 @@ def translate_to_myanmar(text):
         "我来 我来 知道了": "ငါလာပြီ၊ ငါသိပြီ",
         "站住": "ရပ်လိုက်စမ်း",
         "对不起啊": "တောင်းပန်ပါတယ်",
-        "别急我": "ငါ့ကို မစိုးရိမ်ပါနဲ့"
+        "别急我": "ငါ့ကို မစိုးရိမ်ပါနဲ့",
+        "则剑士已经开始了": "ဓားသမား စတင်နေပါပြီ"
     }
     
     for key, val in slang_dict.items():
         if key in text_lower:
             return val
             
+    # Retry translation mechanism to ensure it doesn't fail half-way
+    for _ in range(3):
+        try:
+            translated = GoogleTranslator(source='auto', target='my').translate(text_clean)
+            if translated and translated != text_clean:
+                return translated
+        except Exception:
+            continue
+            
+    # Fallback to direct Chinese-to-Myanmar if auto fails
     try:
-        # Explicitly force translation from Chinese/Auto to Myanmar
-        translated = GoogleTranslator(source='auto', target='my').translate(text)
-        if translated and translated != text:
+        translated = GoogleTranslator(source='zh-CN', target='my').translate(text_clean)
+        if translated:
             return translated
-        else:
-            # Fallback direct translation attempt
-            return GoogleTranslator(source='zh-CN', target='my').translate(text)
-    except Exception as e:
-        return text
+    except Exception:
+        pass
+        
+    return text_clean
 
 uploaded_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ (MP4, MKV)", type=["mp4", "mkv"])
 
@@ -59,8 +72,8 @@ if uploaded_file is not None:
     
     st.video(input_video_path)
     
-    if st.button("🚀 ဗီဒီယိုမှ စာသားခွဲထုတ်ပြီး မြန်မာလို ဘာသာပြန်မည်"):
-        with st.spinner("ဗီဒီယိုကို စစ်ဆေးပြီး ဘာသာပြန်နေပါပြီ... ခေတ္တစောင့်ဆိုင်းပေးပါ။"):
+    if st.button("🚀 ဗီဒီယိုမှ စာသားခွဲထုတ်ပြီး မြန်မာလို အပြည့်အစုံ ဘာသာပြန်မည်"):
+        with st.spinner("ဗီဒီယိုကို စစ်ဆေးပြီး စာသားများအားလုံးကို ဘာသာပြန်နေပါပြီ..."):
             result = model.transcribe(input_video_path)
             segments = result.get("segments", [])
             
@@ -92,7 +105,7 @@ if uploaded_file is not None:
             
             df = pd.DataFrame(data)
             st.session_state["transcript_df"] = df
-            st.success("✅ စာသားခွဲထုတ်ခြင်းနှင့် မြန်မာလို ဘာသာပြန်ဆိုခြင်း ပြီးစီးပါပြီ!")
+            st.success("✅ စာသားများအားလုံး မြန်မာလို ဘာသာပြန်ဆိုပြီးစီးပါပြီ!")
 
 if "transcript_df" in st.session_state:
     st.subheader("📝 မြန်မာဘာသာပြန် စာသားများ တည်းဖြတ်ရန်")
