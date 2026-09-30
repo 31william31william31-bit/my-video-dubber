@@ -1,3 +1,6 @@
 streamlit
 edge-tts
 pandas
+openai-whisper
+torch
+numpy
